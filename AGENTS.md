@@ -1,97 +1,302 @@
 # AGENTS.md — Working Agreement (Next.js + pnpm + Windows)
 
-This repo is a **Next.js** app in the **repo root** (Pages Router via `pages/`).
-Goal: keep the dev loop fast, avoid lockfile churn, and prevent Windows/Turbopack pain.
+This repo is a **Next.js** app at the **repo root** using the **Pages Router** (`pages/`).  
+Primary goal: keep the dev loop **fast + boring**, avoid lockfile churn, and prevent common Windows/Turbopack failure modes.
 
-## 0) Golden rules
+> **Audience:** Humans + agents working on this repo.  
+> **Tone:** “Do the simplest thing that keeps CI and local dev deterministic.”
 
-- Use **pnpm** only (avoid `package-lock.json` churn).
-- Prefer `pnpm dev` for iteration. Avoid `pnpm build` during agent sessions.
-- On Windows, if Turbopack panics/loops, use **webpack dev** (`--webpack`).
+---
 
-## 1) Setup (Windows)
+## Table of Contents
+
+- [Golden Rules](#golden-rules)
+- [Quickstart (Windows)](#quickstart-windows)
+- [Daily Dev Loop](#daily-dev-loop)
+- [Windows Gotchas](#windows-gotchas)
+  - [Symlink privilege (os error 1314)](#symlink-privilege-os-error-1314)
+  - [Turbopack panic loops / next-panic logs](#turbopack-panic-loops--next-panic-logs)
+  - [File I/O benchmark warning (os error 3)](#file-io-benchmark-warning-os-error-3)
+  - [Port already in use (3000)](#port-already-in-use-3000)
+- [Linting](#linting)
+- [Dependencies & lockfile rules](#dependencies--lockfile-rules)
+- [Project map](#project-map)
+- [Agent workflow expectations](#agent-workflow-expectations)
+- [Troubleshooting checklist](#troubleshooting-checklist)
+
+---
+
+## Golden Rules
+
+- **Use `pnpm` only.**  
+  Do not introduce `package-lock.json` or `yarn.lock`. If one appears, remove it and explain why.
+
+- **Prefer `pnpm dev` for iteration.**  
+  Avoid `pnpm build` during active agent sessions unless explicitly requested.
+
+- **Windows stability > Turbopack speed.**  
+  If Turbopack panics/loops, switch to **webpack dev** (`--webpack`) immediately.
+
+- **Keep diffs small and scoped.**  
+  One PR/change-set should ideally address one concern.
+
+- **Ask before changing dependencies.**  
+  Dependency upgrades are easy to do badly and hard to unwind.
+
+---
+
+## Quickstart (Windows)
 
 From repo root:
 
-- Enable Corepack (one-time): `corepack enable`
-- Pin pnpm (repo expects): `corepack prepare pnpm@9.15.1 --activate`
-- Install deps: `pnpm install`
+### Enable Corepack (one-time)
 
-If the repo folder is renamed/moved:
+```bash
+corepack enable
+```
 
-- `rm -rf node_modules`
-- `pnpm install`
+### Pin pnpm (repo expects)
 
-## 2) Dev loop
+```bash
+corepack prepare pnpm@9.15.1 --activate
+pnpm -v
+```
 
-Start:
+### Install dependencies
 
-- `pnpm dev`
+```bash
+pnpm install
+```
 
-Open:
+### If the repo folder was moved/renamed (common Windows footgun)
+
+Sometimes moving a repo breaks native bindings / paths:
+
+```bash
+rm -rf node_modules
+pnpm install
+```
+
+---
+
+## Daily Dev Loop
+
+### Start the dev server
+
+```bash
+pnpm dev
+```
+
+### Open the app
 
 - <http://localhost:3000>
 
-If Fast Refresh feels stuck:
+### If Fast Refresh feels stuck
 
-- Stop server (Ctrl+C)
-- Restart: `pnpm dev`
+- Stop server (**Ctrl+C**)
+- Restart:
 
-## 3) Windows gotchas
+```bash
+pnpm dev
+```
 
-### A) Symlink privilege (os error 1314)
+### If you need webpack dev (Windows fallback)
 
-If you see “required privilege not held” / `os error 1314`:
+One-off:
 
-- Enable **Windows Developer Mode**
-  - Settings → System → For developers → Developer Mode = ON
-- Restart `pnpm dev`
+```bash
+pnpm exec next dev --webpack
+```
 
-### B) Turbopack panic loops
+If webpack dev becomes your default on Windows, update `package.json`:
 
-If you see repeated:
+- `"dev": "next dev --webpack"`
+
+(Do this only if Turbopack keeps failing; don’t churn scripts for no reason.)
+
+---
+
+## Windows Gotchas
+
+### Symlink privilege (os error 1314)
+
+Symptoms:
+
+- “required privilege not held”
+- `os error 1314`
+
+Fix:
+
+- Enable **Windows Developer Mode**:
+  - Settings → System → For developers → **Developer Mode = ON**
+- Restart the dev server:
+
+```bash
+pnpm dev
+```
+
+---
+
+### Turbopack panic loops / next-panic logs
+
+Symptoms:
 
 - `FATAL: An unexpected Turbopack error occurred`
 - `next-panic-*.log` written
+- repeated crashes / infinite rebuild loop
 
-Use webpack dev:
+Fix:
 
-- One-off: `pnpm exec next dev --webpack`
-- Recommended: set `package.json` dev script to `next dev --webpack`
+- Switch to webpack dev:
 
-### C) File I/O benchmark warning (os error 3)
+```bash
+pnpm exec next dev --webpack
+```
 
-If you see: “Failed to benchmark file I/O (os error 3)”
-and it correlates with Turbopack instability:
+Optional (recommended if recurring):
 
-- use webpack dev (`--webpack`)
+- Set `"dev": "next dev --webpack"` in `package.json` so Windows runs stay stable.
 
-## 4) Lint
+---
 
-Run:
+### File I/O benchmark warning (os error 3)
 
-- `pnpm exec next lint`
+Symptoms:
 
-(If you see “Invalid project directory …\lint”, double-check you are in repo root.)
+- “Failed to benchmark file I/O (os error 3)”
+- Often correlates with Turbopack instability on Windows
 
-## 5) Dependency & lockfile rules
+Fix:
 
-- If deps change, `pnpm-lock.yaml` must change.
-- Do not delete `pnpm-lock.yaml` unless explicitly instructed.
-- After dep changes, restart dev server.
+- Use webpack dev:
 
-## 6) Where things live
+```bash
+pnpm exec next dev --webpack
+```
+
+---
+
+### Port already in use (3000)
+
+Symptoms:
+
+- Next.js says port 3000 is already in use
+- or it silently jumps to 3001 and you’re confused
+
+Fix:
+
+- If Next auto-switches ports, use the printed URL in terminal.
+- Or kill the process that holds 3000 (advanced; do only if needed).
+
+---
+
+## Linting
+
+Run from repo root:
+
+```bash
+pnpm exec next lint
+```
+
+If you see:
+
+- “Invalid project directory …\lint”
+
+You are almost certainly not in the repo root. Confirm with:
+
+```bash
+pwd
+ls -la
+```
+
+---
+
+## Dependencies & lockfile rules
+
+- If dependencies change, **`pnpm-lock.yaml` must change**.
+- Do **not** delete `pnpm-lock.yaml` unless explicitly instructed.
+- After dependency changes:
+  - rerun `pnpm install`
+  - restart dev server (`pnpm dev`)
+
+Agent rule:
+
+- **Ask first** before:
+  - adding deps
+  - upgrading Next/React
+  - changing build tooling
+
+---
+
+## Project map
 
 - Pages/routes: `pages/`
 - Components: `components/`
 - Styles: `styles/`
 - Static assets: `public/`
 - Next config: `next.config.ts`
+- TypeScript env: `next-env.d.ts`
 - TS config: `tsconfig.json`
 - This doc: `AGENTS.md`
 
-## 7) Agent workflow expectations
+---
 
-- Keep diffs small and scoped.
-- Ask before installing/updating deps.
-- After changes: show `git status -sb` and a 3-bullet diff summary.
+## Agent workflow expectations
+
+When making changes:
+
+1. **Show state truth first**
+   - `git status -sb`
+
+1. **Keep the diff minimal**
+   - avoid formatting-only churn
+   - avoid drive-by refactors
+
+1. **After changes, provide**
+   - `git status -sb`
+   - `git diff --stat`
+   - 3 bullets:
+     - what changed
+     - why it changed
+     - how to verify quickly
+
+1. **Don’t change dependencies without permission**
+   - if a dep change is required, propose it first with justification
+
+---
+
+## Troubleshooting checklist
+
+If “things are weird,” do this in order:
+
+1. Confirm repo root:
+
+   ```bash
+   pwd
+   ls -la
+   ```
+
+1. Confirm pnpm version:
+
+   ```bash
+   pnpm -v
+   ```
+
+1. Clean install if needed:
+
+   ```bash
+   rm -rf node_modules
+   pnpm install
+   ```
+
+1. Run dev:
+
+   ```bash
+   pnpm dev
+   ```
+
+1. If Windows/Turbopack melts:
+
+   ```bash
+   pnpm exec next dev --webpack
+   ```
