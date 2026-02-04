@@ -192,7 +192,7 @@ export default function CompatibilitySection() {
   const marqueeIsActive = !showGrid && isInView;
 
   // ✅ Fix Edge/axe static analysis:
-  // Don’t put aria-expanded={expression} in JSX; set correct token at runtime instead.
+  // Don’t put aria-expanded={showGrid ? "true" : "false"} in JSX; set correct token at runtime instead.
   useEffect(() => {
     if (!toggleBtnRef.current) return;
     toggleBtnRef.current.setAttribute("aria-expanded", showGrid ? "true" : "false");
