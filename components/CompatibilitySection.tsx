@@ -107,32 +107,27 @@ function LogoItem({
       ? "flex h-full w-full min-w-0 items-center gap-4"
       : "flex h-20 min-w-[280px] items-center gap-4 pr-10";
 
-  const icon = imageSrcLight && imageSrcDark ? (
-    <>
-      <Image
-        src={imageSrcLight}
-        alt={`${name} logo`}
-        width={64}
-        height={64}
-        className="block h-16 w-16 dark:hidden"
-      />
-      <Image
-        src={imageSrcDark}
-        alt={`${name} logo`}
-        width={64}
-        height={64}
-        className="hidden h-16 w-16 dark:block"
-      />
-    </>
-  ) : imageSrc ? (
-    <Image
-      src={imageSrc}
-      alt={`${name} logo`}
-      width={64}
-      height={64}
-      className="h-16 w-16"
-    />
-  ) : null;
+  const icon =
+    imageSrcLight && imageSrcDark ? (
+      <>
+        <Image
+          src={imageSrcLight}
+          alt={`${name} logo`}
+          width={64}
+          height={64}
+          className="block h-16 w-16 dark:hidden"
+        />
+        <Image
+          src={imageSrcDark}
+          alt={`${name} logo`}
+          width={64}
+          height={64}
+          className="hidden h-16 w-16 dark:block"
+        />
+      </>
+    ) : imageSrc ? (
+      <Image src={imageSrc} alt={`${name} logo`} width={64} height={64} className="h-16 w-16" />
+    ) : null;
 
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className={baseClasses}>
@@ -185,6 +180,7 @@ function LogoMarqueeRow({
 
 export default function CompatibilitySection() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const toggleBtnRef = useRef<HTMLButtonElement | null>(null);
 
   // Shuffle once per mount: stable "random" order for the session (no setState-in-effect).
   const shuffledAgents = useMemo(() => shuffleAgents(agents), []);
@@ -195,16 +191,20 @@ export default function CompatibilitySection() {
   // Derived: grid open = marquee paused (no state mutation needed).
   const marqueeIsActive = !showGrid && isInView;
 
+  // ✅ Fix Edge/axe static analysis:
+  // Don’t put aria-expanded={expression} in JSX; set correct token at runtime instead.
+  useEffect(() => {
+    if (!toggleBtnRef.current) return;
+    toggleBtnRef.current.setAttribute("aria-expanded", showGrid ? "true" : "false");
+  }, [showGrid]);
+
   useEffect(() => {
     const node = containerRef.current;
     if (!node || showGrid) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsInView(Boolean(entry.isIntersecting && entry.intersectionRatio > 0));
-      },
-      { threshold: 0 }
-    );
+    const observer = new IntersectionObserver(([entry]) => {
+      setIsInView(Boolean(entry.isIntersecting && entry.intersectionRatio > 0));
+    });
 
     observer.observe(node);
     return () => observer.disconnect();
@@ -251,11 +251,11 @@ export default function CompatibilitySection() {
 
       <div className="mt-4 text-center">
         <button
+          ref={toggleBtnRef}
           type="button"
           onClick={() => setShowGrid((prev) => !prev)}
           className="mt-4 cursor-pointer text-base font-medium underline hover:no-underline"
           aria-controls="supported-agents"
-          aria-expanded={Boolean(showGrid)}
         >
           {showGrid ? "Collapse supported agents" : "View all supported agents"}
         </button>
