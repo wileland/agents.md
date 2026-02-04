@@ -1,5 +1,4 @@
 import React from "react";
-import ClipboardIcon from "./icons/ClipboardIcon";
 import CopyIcon from "./icons/CopyIcon";
 
 interface CodeExampleProps {
@@ -153,7 +152,18 @@ export default function CodeExample({
           }`}
           aria-label="Copy to clipboard"
         >
-          {copied ? (
+          
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute right-2 top-2 text-sm underline hover:no-underline"
+          >
+            View on GitHub
+          </a>
+        ) : null}
+{copied ? (
             <svg
               className="w-4 h-4"
               fill="none"
