@@ -169,7 +169,9 @@ function LogoMarqueeRow({
 
   return (
     <div className="w-full overflow-hidden">
-      <div className={`logoMarqueeTrack ${durationClass} ${offsetClass} ${playClass} flex items-center gap-8 py-3`}>
+      <div
+        className={`logoMarqueeTrack ${durationClass} ${offsetClass} ${playClass} flex items-center gap-8 py-3`}
+      >
         {doubledAgents.map((agent, index) => (
           <LogoItem key={`${agent.name}-${index}`} {...agent} />
         ))}
@@ -179,28 +181,22 @@ function LogoMarqueeRow({
 }
 
 export default function CompatibilitySection() {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const toggleBtnRef = useRef<HTMLButtonElement | null>(null);
+  const marqueeContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Shuffle once per mount: stable "random" order for the session (no setState-in-effect).
+  // Shuffle once per mount: stable “random” order for the session.
   const shuffledAgents = useMemo(() => shuffleAgents(agents), []);
 
   const [isInView, setIsInView] = useState(false);
-  const [showGrid, setShowGrid] = useState(false);
 
-  // Derived: grid open = marquee paused (no state mutation needed).
-  const marqueeIsActive = !showGrid && isInView;
+  // Use <details> as the source of truth (no aria-expanded in JSX).
+  const [isOpen, setIsOpen] = useState(false);
 
-  // ✅ Fix Edge/axe static analysis:
-  // Don’t put aria-expanded={showGrid ? "true" : "false"} in JSX; set correct token at runtime instead.
-  useEffect(() => {
-    if (!toggleBtnRef.current) return;
-    toggleBtnRef.current.setAttribute("aria-expanded", showGrid ? "true" : "false");
-  }, [showGrid]);
+  // Derived: when open, marquee pauses.
+  const marqueeIsActive = !isOpen && isInView;
 
   useEffect(() => {
-    const node = containerRef.current;
-    if (!node || showGrid) return;
+    const node = marqueeContainerRef.current;
+    if (!node || isOpen) return;
 
     const observer = new IntersectionObserver(([entry]) => {
       setIsInView(Boolean(entry.isIntersecting && entry.intersectionRatio > 0));
@@ -208,7 +204,7 @@ export default function CompatibilitySection() {
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [showGrid]);
+  }, [isOpen]);
 
   const [topRow, bottomRow] = useMemo(() => {
     const first: AgentEntry[] = [];
@@ -226,9 +222,9 @@ export default function CompatibilitySection() {
     <Section
       id="compatibility"
       title="One AGENTS.md works across many agents"
-      className={`py-12 px-0 ${showGrid ? "" : "!px-0"}`}
+      className={`py-12 px-0 ${isOpen ? "" : "!px-0"}`}
       center
-      maxWidthClass={showGrid ? "max-w-3xl" : "max-w-none"}
+      maxWidthClass={isOpen ? "max-w-3xl" : "max-w-none"}
     >
       <div className="mx-auto max-w-3xl text-center">
         <p className="px-8 text-xl font-light text-gray-500 dark:text-gray-400">
@@ -236,30 +232,28 @@ export default function CompatibilitySection() {
         </p>
       </div>
 
-      {showGrid ? (
+      <details
+        className="mt-6"
+        open={isOpen}
+        onToggle={(e) => setIsOpen((e.currentTarget as HTMLDetailsElement).open)}
+      >
+        <summary className="mt-4 cursor-pointer list-none text-center text-base font-medium underline hover:no-underline">
+          {isOpen ? "Collapse supported agents" : "View all supported agents"}
+        </summary>
+
         <div id="supported-agents" className="mt-6 grid w-full grid-cols-2 gap-8 md:grid-cols-3">
           {agents.map((agent) => (
             <LogoItem key={agent.name} {...agent} variant="grid" />
           ))}
         </div>
-      ) : (
-        <div ref={containerRef} className="mt-6 flex w-full flex-col gap-6" id="supported-agents">
+      </details>
+
+      {!isOpen ? (
+        <div ref={marqueeContainerRef} className="mt-6 flex w-full flex-col gap-6">
           <LogoMarqueeRow rowAgents={topRow} isActive={marqueeIsActive} duration={70} />
           <LogoMarqueeRow rowAgents={bottomRow} isActive={marqueeIsActive} duration={80} offset={-35} />
         </div>
-      )}
-
-      <div className="mt-4 text-center">
-        <button
-          ref={toggleBtnRef}
-          type="button"
-          onClick={() => setShowGrid((prev) => !prev)}
-          className="mt-4 cursor-pointer text-base font-medium underline hover:no-underline"
-          aria-controls="supported-agents"
-        >
-          {showGrid ? "Collapse supported agents" : "View all supported agents"}
-        </button>
-      </div>
+      ) : null}
     </Section>
   );
 }
